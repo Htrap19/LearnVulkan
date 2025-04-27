@@ -1,0 +1,7 @@
+.vc/
+VulkanCourseApp/
+x64/
+
+*.vcxproj
+*.user
+*.filters
