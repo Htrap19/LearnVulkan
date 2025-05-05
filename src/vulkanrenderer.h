@@ -7,6 +7,7 @@
 #include <vector>
 #include <set>
 #include <cstring>
+#include <algorithm>
 
 #include "utilities.h"
 
@@ -25,6 +26,7 @@ private:
 	void setupDebugMessenger();
 	void createSurface();
 	void createLogicalDevice();
+	void createSwapchain();
 
 	// Get functions
 	void getPhysicalDevice();
@@ -41,6 +43,14 @@ private:
 	QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device);
 	SwapchainDetails getSwapchainDetails(VkPhysicalDevice device);
 
+	// -- Choose functions
+	VkSurfaceFormatKHR chooseBestSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats);
+	VkPresentModeKHR chooseBestPresentMode(const std::vector<VkPresentModeKHR>& presentationModes);
+	VkExtent2D chooseSurfaceExtent(VkSurfaceCapabilitiesKHR surfaceCapabilities);
+
+	// -- Create functions
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+
 private:
 	GLFWwindow* m_window = nullptr;
 
@@ -54,5 +64,10 @@ private:
 	} m_mainDevice;
 	VkQueue m_graphicsQueue;
 	VkQueue m_presentationQueue;
+	VkSwapchainKHR m_swapchain;
+	std::vector<SwapchainImage> m_swapchainImages;
+
+	VkFormat m_swapchainImageFormat;
+	VkExtent2D m_swapchainImageExtent;
 };
 
