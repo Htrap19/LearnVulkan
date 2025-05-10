@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <vector>
 #include <set>
+#include <array>
 #include <cstring>
 #include <algorithm>
 
@@ -27,6 +28,7 @@ private:
 	void createSurface();
 	void createLogicalDevice();
 	void createSwapchain();
+	void createRenderPass();
 	void createGraphicsPipeline();
 
 	// Get functions
@@ -68,6 +70,10 @@ private:
 	VkQueue m_presentationQueue;
 	VkSwapchainKHR m_swapchain;
 	std::vector<SwapchainImage> m_swapchainImages;
+
+	VkPipelineLayout m_pipelineLayout;
+	VkRenderPass m_renderPass;
+	VkPipeline m_graphicsPipeline;
 
 	VkFormat m_swapchainImageFormat;
 	VkExtent2D m_swapchainImageExtent;
