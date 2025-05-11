@@ -30,6 +30,12 @@ private:
 	void createSwapchain();
 	void createRenderPass();
 	void createGraphicsPipeline();
+	void createFramebuffers();
+	void createCommandPool();
+	void createCommandBuffers();
+
+	// Record functions
+	void recordCommands();
 
 	// Get functions
 	void getPhysicalDevice();
@@ -69,7 +75,12 @@ private:
 	VkQueue m_graphicsQueue;
 	VkQueue m_presentationQueue;
 	VkSwapchainKHR m_swapchain;
+
 	std::vector<SwapchainImage> m_swapchainImages;
+	std::vector<VkFramebuffer> m_swapchainFramebuffers;
+	std::vector<VkCommandBuffer> m_commandBuffers;
+
+	VkCommandPool m_graphicsCommandPool;
 
 	VkPipelineLayout m_pipelineLayout;
 	VkRenderPass m_renderPass;
