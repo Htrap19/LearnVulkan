@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+static const uint32_t MAX_FRAME_DRAWS = 2;
+
 static const std::vector<const char*> s_validationLayers =
 {
 	"VK_LAYER_KHRONOS_validation"
@@ -101,6 +103,7 @@ int VulkanRenderer::init(GLFWwindow* window)
 		createCommandPool();
 		createCommandBuffers();
 		recordCommands();
+		createSynchronisation();
 	}
 	catch (const std::exception& e)
 	{
@@ -113,6 +116,14 @@ int VulkanRenderer::init(GLFWwindow* window)
 
 void VulkanRenderer::destroy()
 {
+	vkDeviceWaitIdle(m_mainDevice.logicalDevice);
+
+	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
+	{
+		vkDestroySemaphore(m_mainDevice.logicalDevice, m_renderFinished[i], nullptr);
+		vkDestroySemaphore(m_mainDevice.logicalDevice, m_imageAvailable[i], nullptr);
+		vkDestroyFence(m_mainDevice.logicalDevice, m_drawFences[i], nullptr);
+	}
 	vkDestroyCommandPool(m_mainDevice.logicalDevice, m_graphicsCommandPool, nullptr);
 	for (auto framebuffer : m_swapchainFramebuffers)
 	{
@@ -133,6 +144,53 @@ void VulkanRenderer::destroy()
 		destroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
 	}
 	vkDestroyInstance(m_instance, nullptr);
+}
+
+void VulkanRenderer::draw()
+{
+	vkWaitForFences(m_mainDevice.logicalDevice, 1, &m_drawFences[currentFrame],
+		VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkResetFences(m_mainDevice.logicalDevice, 1, &m_drawFences[currentFrame]);
+
+	uint32_t imageIndex = 0;
+	vkAcquireNextImageKHR(m_mainDevice.logicalDevice, m_swapchain, 
+		std::numeric_limits<uint64_t>::max(), m_imageAvailable[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &m_imageAvailable[currentFrame];
+	VkPipelineStageFlags waitStages[] =
+	{
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	};
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &m_commandBuffers[imageIndex];
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &m_renderFinished[currentFrame];
+
+	VkResult result = vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_drawFences[currentFrame]);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to submit command buffer to queue!");
+	}
+
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = &m_renderFinished[currentFrame];
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &m_swapchain;
+	presentInfo.pImageIndices = &imageIndex;
+
+	result = vkQueuePresentKHR(m_presentationQueue, &presentInfo);
+	if (result != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to present to a queue");
+	}
+
+	currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;
 }
 
 void VulkanRenderer::createInstance()
@@ -608,11 +666,34 @@ void VulkanRenderer::createCommandBuffers()
 	}
 }
 
+void VulkanRenderer::createSynchronisation()
+{
+	m_imageAvailable.resize(MAX_FRAME_DRAWS);
+	m_renderFinished.resize(MAX_FRAME_DRAWS);
+	m_drawFences.resize(MAX_FRAME_DRAWS);
+
+	VkSemaphoreCreateInfo semaphoreCreateInfo{};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	VkFenceCreateInfo fenceCreateInfo{};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
+	{
+		if (vkCreateSemaphore(m_mainDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &m_imageAvailable[i]) != VK_SUCCESS ||
+			vkCreateSemaphore(m_mainDevice.logicalDevice, &semaphoreCreateInfo, nullptr, &m_renderFinished[i]) != VK_SUCCESS ||
+			vkCreateFence(m_mainDevice.logicalDevice, &fenceCreateInfo, nullptr, &m_drawFences[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create semaphore and/or fence!");
+		}
+	}
+}
+
 void VulkanRenderer::recordCommands()
 {
 	VkCommandBufferBeginInfo commandBufferBeginInfo{};
 	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
 	VkRenderPassBeginInfo renderPassBeginInfo{};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

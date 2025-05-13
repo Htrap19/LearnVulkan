@@ -21,6 +21,8 @@ public:
 	int init(GLFWwindow* window);
 	void destroy();
 
+	void draw();
+
 private:
 	// Create functions
 	void createInstance();
@@ -33,6 +35,7 @@ private:
 	void createFramebuffers();
 	void createCommandPool();
 	void createCommandBuffers();
+	void createSynchronisation();
 
 	// Record functions
 	void recordCommands();
@@ -88,5 +91,10 @@ private:
 
 	VkFormat m_swapchainImageFormat;
 	VkExtent2D m_swapchainImageExtent;
+
+	std::vector<VkSemaphore> m_imageAvailable;
+	std::vector<VkSemaphore> m_renderFinished;
+	std::vector<VkFence> m_drawFences;
+	int currentFrame = 0;
 };
 
