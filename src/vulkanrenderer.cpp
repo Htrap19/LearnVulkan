@@ -102,8 +102,21 @@ int VulkanRenderer::init(GLFWwindow* window)
 		createFramebuffers();
 		createCommandPool();
 		createCommandBuffers();
-		recordCommands();
 		createSynchronisation();
+
+		std::vector<Vertex> meshVertices =
+		{
+			{{ 0.4f, -0.4f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+			{{ 0.4f,  0.4f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+			{{-0.4f,  0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+
+			{{-0.4f,  0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+			{{-0.4f, -0.4f, 0.0f}, {1.0f, 1.0f, 0.0f}},
+			{{ 0.4f, -0.4f, 0.0f}, {1.0f, 0.0f, 0.0f}}
+		};
+		m_mesh = Mesh(m_mainDevice.physicalDevice, m_mainDevice.logicalDevice, &meshVertices);
+
+		recordCommands();
 	}
 	catch (const std::exception& e)
 	{
@@ -118,6 +131,7 @@ void VulkanRenderer::destroy()
 {
 	vkDeviceWaitIdle(m_mainDevice.logicalDevice);
 
+	m_mesh.destroy();
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
 		vkDestroySemaphore(m_mainDevice.logicalDevice, m_renderFinished[i], nullptr);
@@ -153,7 +167,7 @@ void VulkanRenderer::draw()
 	vkResetFences(m_mainDevice.logicalDevice, 1, &m_drawFences[currentFrame]);
 
 	uint32_t imageIndex = 0;
-	vkAcquireNextImageKHR(m_mainDevice.logicalDevice, m_swapchain, 
+	vkAcquireNextImageKHR(m_mainDevice.logicalDevice, m_swapchain,
 		std::numeric_limits<uint64_t>::max(), m_imageAvailable[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 	VkSubmitInfo submitInfo{};
@@ -211,7 +225,7 @@ void VulkanRenderer::createInstance()
 	VkInstanceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	createInfo.pApplicationInfo = &appInfo;
-	
+
 	auto extensions = getRequiredExtensions();
 
 	if (!checkInstanceExtensionSupport(extensions))
@@ -229,7 +243,7 @@ void VulkanRenderer::createInstance()
 		createInfo.ppEnabledLayerNames = s_validationLayers.data();
 
 		populateDebugMessengerCreateInfo(debugCreateInfo);
-		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 	}
 	else
 	{
@@ -238,7 +252,7 @@ void VulkanRenderer::createInstance()
 	}
 
 	VkResult result = vkCreateInstance(&createInfo, nullptr, &m_instance);
-	
+
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create an instance!");
@@ -333,7 +347,7 @@ void VulkanRenderer::createSwapchain()
 	swapchainCreateInfo.imageExtent = surfaceExtent;
 	swapchainCreateInfo.imageArrayLayers = 1;
 	swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	
+
 	QueueFamilyIndices indices = getQueueFamilies(m_mainDevice.physicalDevice);
 	if (indices.graphicsFamily != indices.presentationFamily)
 	{
@@ -471,13 +485,29 @@ void VulkanRenderer::createGraphicsPipeline()
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertexShaderStageCreateInfo, fragmentShaderStageCreateInfo };
 
-	// -- VERTEX INPUT (TODO: Need to load the resources later) --
+	// -- VERTEX INPUT --
+	VkVertexInputBindingDescription bindingDescription{};
+	bindingDescription.binding = 0;
+	bindingDescription.stride = sizeof(Vertex);
+	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	std::array<VkVertexInputAttributeDescription, 2> attribDescriptions;
+	attribDescriptions[0].location = 0;
+	attribDescriptions[0].binding = 0;
+	attribDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attribDescriptions[0].offset = offsetof(Vertex, pos);
+
+	attribDescriptions[1].location = 1;
+	attribDescriptions[1].binding = 0;
+	attribDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attribDescriptions[1].offset = offsetof(Vertex, color);
+
 	VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo{};
 	vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputStateCreateInfo.vertexBindingDescriptionCount = 0;
-	vertexInputStateCreateInfo.pVertexBindingDescriptions = nullptr;
-	vertexInputStateCreateInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputStateCreateInfo.pVertexAttributeDescriptions = nullptr;
+	vertexInputStateCreateInfo.vertexBindingDescriptionCount = 1;
+	vertexInputStateCreateInfo.pVertexBindingDescriptions = &bindingDescription;
+	vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribDescriptions.size());
+	vertexInputStateCreateInfo.pVertexAttributeDescriptions = attribDescriptions.data();
 
 	// -- VERTEX ASSEMBLY --
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo{};
@@ -552,7 +582,7 @@ void VulkanRenderer::createGraphicsPipeline()
 		VK_COLOR_COMPONENT_G_BIT |
 		VK_COLOR_COMPONENT_B_BIT |
 		VK_COLOR_COMPONENT_A_BIT;
-	
+
 	VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{};
 	colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
@@ -656,9 +686,9 @@ void VulkanRenderer::createCommandBuffers()
 	commandBuffersAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBuffersAllocInfo.commandPool = m_graphicsCommandPool;
 	commandBuffersAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;	// VK_COMMAND_BUFFER_LEVEL_PRIMARY	 : Supposed to be used directly by the queue.
-																		// VK_COMMAND_BUFFER_LEVEL_SECONDARY : Only to be used(called) by or from other primary level command buffer
+	// VK_COMMAND_BUFFER_LEVEL_SECONDARY : Only to be used(called) by or from other primary level command buffer
 	commandBuffersAllocInfo.commandBufferCount = static_cast<uint32_t>(m_commandBuffers.size());
-	
+
 	VkResult result = vkAllocateCommandBuffers(m_mainDevice.logicalDevice, &commandBuffersAllocInfo, m_commandBuffers.data());
 	if (result != VK_SUCCESS)
 	{
@@ -720,7 +750,12 @@ void VulkanRenderer::recordCommands()
 
 		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
 
-		vkCmdDraw(m_commandBuffers[i], 3, 1, 0, 0);
+		VkBuffer vertexBuffers[] = { m_mesh.getVertexBuffer() };
+		VkDeviceSize offsets[] = { 0 };
+
+		vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+		vkCmdDraw(m_commandBuffers[i], m_mesh.getVertexCount(), 1, 0, 0);
 
 		vkCmdEndRenderPass(m_commandBuffers[i]);
 
@@ -787,11 +822,11 @@ bool VulkanRenderer::checkInstanceExtensionSupport(const std::vector<const char*
 bool VulkanRenderer::checkDeviceSuitable(VkPhysicalDevice device)
 {
 	QueueFamilyIndices indices = getQueueFamilies(device);
-	
+
 	bool supportExtensions = checkDeviceExtensionSupport(device);
 
 	SwapchainDetails swapchainDetails = getSwapchainDetails(device);
-	bool isValidSwapchain = !swapchainDetails.formats.empty() && 
+	bool isValidSwapchain = !swapchainDetails.formats.empty() &&
 		!swapchainDetails.presentationModes.empty();
 
 	return indices.isValid() && supportExtensions && isValidSwapchain;
@@ -952,8 +987,8 @@ VkSurfaceFormatKHR VulkanRenderer::chooseBestSurfaceFormat(const std::vector<VkS
 
 	for (const auto& surfaceFormat : formats)
 	{
-		if ((surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM || 
-			 surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM) &&
+		if ((surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM ||
+			surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM) &&
 			surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 		{
 			return surfaceFormat;
@@ -1032,7 +1067,7 @@ VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& shade
 	VkShaderModuleCreateInfo shaderModuleCreateInfo{};
 	shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	shaderModuleCreateInfo.codeSize = shaderCode.size();
-	shaderModuleCreateInfo.pCode = reinterpret_cast<const uint32_t *>(shaderCode.data());
+	shaderModuleCreateInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
 
 	VkShaderModule shaderModule;
 	VkResult result = vkCreateShaderModule(m_mainDevice.logicalDevice, &shaderModuleCreateInfo, nullptr, &shaderModule);

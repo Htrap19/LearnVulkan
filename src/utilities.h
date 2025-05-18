@@ -2,6 +2,8 @@
 
 #include <fstream>
 
+#include <glm/glm.hpp>
+
 struct QueueFamilyIndices
 {
 	int graphicsFamily = -1;
@@ -25,6 +27,12 @@ struct SwapchainImage
 {
 	VkImage image;
 	VkImageView imageView;
+};
+
+struct Vertex
+{
+	glm::vec3 pos;
+	glm::vec3 color;
 };
 
 static std::vector<char> readFile(const std::string& filePath)

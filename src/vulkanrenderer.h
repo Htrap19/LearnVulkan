@@ -11,6 +11,7 @@
 #include <algorithm>
 
 #include "utilities.h"
+#include "mesh.h"
 
 class VulkanRenderer
 {
@@ -96,5 +97,7 @@ private:
 	std::vector<VkSemaphore> m_renderFinished;
 	std::vector<VkFence> m_drawFences;
 	int currentFrame = 0;
+
+	Mesh m_mesh;
 };
 
