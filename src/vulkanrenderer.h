@@ -98,6 +98,6 @@ private:
 	std::vector<VkFence> m_drawFences;
 	int currentFrame = 0;
 
-	Mesh m_mesh;
+	std::vector<Mesh> m_meshes;
 };
 

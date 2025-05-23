@@ -106,15 +106,29 @@ int VulkanRenderer::init(GLFWwindow* window)
 
 		std::vector<Vertex> meshVertices =
 		{
-			{{ 0.4f, -0.4f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-			{{ 0.4f,  0.4f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-			{{-0.4f,  0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-
-			{{-0.4f,  0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-			{{-0.4f, -0.4f, 0.0f}, {1.0f, 1.0f, 0.0f}},
-			{{ 0.4f, -0.4f, 0.0f}, {1.0f, 0.0f, 0.0f}}
+			{{-0.1f, -0.4f, 0.0f}, {1.0f, 0.0f, 0.0f}}, // 0
+			{{-0.1f,  0.4f, 0.0f}, {0.0f, 1.0f, 0.0f}}, // 1
+			{{-0.9f,  0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}}, // 2
+			{{-0.9f, -0.4f, 0.0f}, {1.0f, 1.0f, 0.0f}}, // 3
 		};
-		m_mesh = Mesh(m_mainDevice.physicalDevice, m_mainDevice.logicalDevice, &meshVertices);
+		std::vector<Vertex> meshVertices2 =
+		{
+			{{ 0.9f, -0.4f, 0.0f}, {1.0f, 0.0f, 0.0f}}, // 0
+			{{ 0.9f,  0.4f, 0.0f}, {0.0f, 1.0f, 0.0f}}, // 1
+			{{ 0.1f,  0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}}, // 2
+			{{ 0.1f, -0.4f, 0.0f}, {1.0f, 1.0f, 0.0f}}, // 3
+		};
+		std::vector<uint32_t> indices =
+		{
+			0, 1, 2,
+			2, 3, 0
+		};
+		m_meshes.emplace_back(Mesh(m_mainDevice.physicalDevice, m_mainDevice.logicalDevice, 
+			m_graphicsQueue, m_graphicsCommandPool, 
+			&meshVertices, &indices));
+		m_meshes.emplace_back(Mesh(m_mainDevice.physicalDevice, m_mainDevice.logicalDevice,
+			m_graphicsQueue, m_graphicsCommandPool,
+			&meshVertices2, &indices));
 
 		recordCommands();
 	}
@@ -131,7 +145,11 @@ void VulkanRenderer::destroy()
 {
 	vkDeviceWaitIdle(m_mainDevice.logicalDevice);
 
-	m_mesh.destroy();
+	for (auto& mesh : m_meshes)
+	{
+		mesh.destroy();
+	}
+
 	for (size_t i = 0; i < MAX_FRAME_DRAWS; i++)
 	{
 		vkDestroySemaphore(m_mainDevice.logicalDevice, m_renderFinished[i], nullptr);
@@ -750,12 +768,17 @@ void VulkanRenderer::recordCommands()
 
 		vkCmdBindPipeline(m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
 
-		VkBuffer vertexBuffers[] = { m_mesh.getVertexBuffer() };
-		VkDeviceSize offsets[] = { 0 };
+		for (auto& mesh : m_meshes)
+		{
+			VkBuffer vertexBuffers[] = { mesh.getVertexBuffer() };
+			VkDeviceSize offsets[] = { 0 };
 
-		vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
+			vkCmdBindVertexBuffers(m_commandBuffers[i], 0, 1, vertexBuffers, offsets);
+			vkCmdBindIndexBuffer(m_commandBuffers[i], mesh.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdDraw(m_commandBuffers[i], m_mesh.getVertexCount(), 1, 0, 0);
+			//vkCmdDraw(m_commandBuffers[i], m_mesh.getVertexCount(), 1, 0, 0);
+			vkCmdDrawIndexed(m_commandBuffers[i], mesh.getIndexCount(), 1, 0, 0, 0);
+		}
 
 		vkCmdEndRenderPass(m_commandBuffers[i]);
 
