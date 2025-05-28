@@ -3,6 +3,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <stdexcept>
 #include <vector>
 #include <set>
@@ -23,6 +26,7 @@ public:
 	void destroy();
 
 	void draw();
+	void updateModel(glm::mat4 model);
 
 private:
 	// Create functions
@@ -32,11 +36,17 @@ private:
 	void createLogicalDevice();
 	void createSwapchain();
 	void createRenderPass();
+	void createDescriptorSetLayout();
 	void createGraphicsPipeline();
 	void createFramebuffers();
 	void createCommandPool();
 	void createCommandBuffers();
 	void createSynchronisation();
+	void createUniformBuffers();
+	void createDescriptorPool();
+	void createDescriptorSets();
+
+	void updateUniformBuffers(uint32_t imageIndex);
 
 	// Record functions
 	void recordCommands();
@@ -90,6 +100,14 @@ private:
 	VkRenderPass m_renderPass;
 	VkPipeline m_graphicsPipeline;
 
+	VkDescriptorSetLayout m_descriptorSetLayout;
+
+	VkDescriptorPool m_descriptorPool;
+	std::vector<VkDescriptorSet> m_descriptorSets;
+
+	std::vector<VkBuffer> m_uniformBuffers;
+	std::vector<VkDeviceMemory> m_uniformBuffersMemory;
+
 	VkFormat m_swapchainImageFormat;
 	VkExtent2D m_swapchainImageExtent;
 
@@ -99,5 +117,11 @@ private:
 	int currentFrame = 0;
 
 	std::vector<Mesh> m_meshes;
+	struct MVP
+	{
+		glm::mat4 projection;
+		glm::mat4 view;
+		glm::mat4 model;
+	} m_mvp;
 };
 
