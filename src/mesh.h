@@ -22,6 +22,11 @@ public:
 		uint32_t allowedTypes, VkMemoryPropertyFlags memPropertyFlags);
 };
 
+struct UboModel
+{
+	glm::mat4 model;
+};
+
 class Mesh
 {
 public:
@@ -31,6 +36,11 @@ public:
 		std::vector<Vertex>* vertices, std::vector<uint32_t>* indices);
 
 	void destroy();
+
+	inline void setModel(const glm::mat4& model)
+	{ m_model.model = model; }
+	inline UboModel getModel() const
+	{ return m_model; }
 
 	inline int getVertexCount() const { return m_vertexCount; }
 	inline VkBuffer getVertexBuffer() const { return m_vertexBuffer; }
@@ -44,6 +54,8 @@ private:
 		std::vector<uint32_t>* indices);
 
 private:
+	UboModel m_model;
+
 	int m_vertexCount = 0;
 	VkBuffer m_vertexBuffer;
 	VkDeviceMemory m_vertexBufferMemory;

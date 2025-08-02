@@ -10,6 +10,8 @@ Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device,
 	createVertexBuffer(transferQueue, transferCommandPool, vertices);
 	m_indexCount = indices->size();
 	createIndexBuffer(transferQueue, transferCommandPool, indices);
+
+	m_model.model = glm::mat4(1.0f);
 }
 
 void Mesh::destroy()

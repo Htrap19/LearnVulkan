@@ -26,7 +26,7 @@ public:
 	void destroy();
 
 	void draw();
-	void updateModel(glm::mat4 model);
+	void updateModel(uint32_t modelId, glm::mat4 model);
 
 private:
 	// Create functions
@@ -53,6 +53,9 @@ private:
 
 	// Get functions
 	void getPhysicalDevice();
+
+	// Allocate functions
+	void allocateDynamicBufferTransferSpace();
 
 	// Support functions
 	// -- Checker functions
@@ -105,8 +108,15 @@ private:
 	VkDescriptorPool m_descriptorPool;
 	std::vector<VkDescriptorSet> m_descriptorSets;
 
-	std::vector<VkBuffer> m_uniformBuffers;
-	std::vector<VkDeviceMemory> m_uniformBuffersMemory;
+	std::vector<VkBuffer> m_vpUniformBuffers;
+	std::vector<VkDeviceMemory> m_vpUniformBuffersMemory;
+
+	std::vector<VkBuffer> m_modelDUniformBuffers;
+	std::vector<VkDeviceMemory> m_modelDUniformBuffersMemory;
+
+	VkDeviceSize m_minUniformBufferOffset;
+	size_t m_modelUniformAlignment;
+	UboModel* m_modelTransferSpace = nullptr;
 
 	VkFormat m_swapchainImageFormat;
 	VkExtent2D m_swapchainImageExtent;
@@ -117,11 +127,10 @@ private:
 	int currentFrame = 0;
 
 	std::vector<Mesh> m_meshes;
-	struct MVP
+	struct UboViewProjection
 	{
 		glm::mat4 projection;
 		glm::mat4 view;
-		glm::mat4 model;
-	} m_mvp;
+	} m_uboViewProjection;
 };
 
